@@ -804,6 +804,18 @@ static inline EBPF_INLINE bool matches_interpreter_range(u64 section_offset, Off
          ((section_offset >= range->lower_offset2) && (section_offset <= range->upper_offset2));
 }
 
+static inline EBPF_INLINE u16 *lookup_interpreter_range(u64 section_id, u64 section_offset)
+{
+  InterpreterRange key = {
+    .prefixLen  = BIT_WIDTH_FILE_ID + BIT_WIDTH_OFFSET,
+    .fileIDHigh = __constant_cpu_to_be32(section_id >> 32),
+    .fileIDLow  = __constant_cpu_to_be32(section_id),
+    .offsetHigh = __constant_cpu_to_be32(section_offset >> 32),
+    .offsetLow  = __constant_cpu_to_be32(section_offset),
+  };
+  return bpf_map_lookup_elem(&interpreter_ranges, &key);
+}
+
 // get_next_interpreter tries to get the next interpreter unwinder from the section id.
 // If the section id happens to be within the range of a known interpreter it will
 // return the interpreter unwinder otherwise the native unwinder.
@@ -822,6 +834,14 @@ static inline EBPF_INLINE int get_next_interpreter(PerCPURecord *record)
         return range->program_index;
       }
       DEBUG_PRINT("interpreter unwinder done");
+    }
+    if (range->use_interpreter_ranges) {
+      u16 *program_index = lookup_interpreter_range(section_id, section_offset);
+      if (program_index != 0 && !unwinder_is_done(record, *program_index)) {
+        DEBUG_PRINT("interpreter_ranges match %d", *program_index);
+        increment_metric(metricID_UnwindCallInterpreter);
+        return *program_index;
+      }
     }
   }
   return PROG_UNWIND_NATIVE;

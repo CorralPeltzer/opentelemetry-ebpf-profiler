@@ -868,6 +868,23 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 	if err != nil {
 		return nil, err
 	}
+	tailCallRanges, tailCallErr := findTailCallInterpreterRanges(ef)
+	if tailCallErr != nil {
+		log.Debugf("failed to inspect Python tail-call interpreter symbols in %s: %v",
+			info.FileName(), tailCallErr)
+	} else if len(tailCallRanges) > 0 {
+		// Builds configured with --with-tail-call-interp execute bytecode in the
+		// _TAIL_CALL_* handlers, and _PyEval_EvalFrameDefault becomes a small
+		// trampoline that enters the first handler with a regular call. The
+		// trampoline therefore stays on the native stack directly below the handler
+		// frame for the whole interpreter invocation. Registering it as interpreter
+		// code as well would match two consecutive native frames per invocation and
+		// emit the next batch of Python frames before the native frames that sit
+		// between two interpreter invocations. Only the handlers are registered.
+		log.Infof("Detected Python tail-call interpreter with %d symbol ranges in %s",
+			len(tailCallRanges), info.FileName())
+		interpRanges = tailCallRanges
+	}
 
 	// Python 3.13+ uses direct TLS variable _Py_tss_tstate instead of pthread_getspecific.
 	var staticTLSOffset int64
@@ -1023,6 +1040,31 @@ func findInterpreterRanges(info *interpreter.LoaderInfo, ef *pfelf.File,
 		interpRanges = append(interpRanges, coldRange)
 	}
 	return interpRanges, nil
+}
+
+const tailCallInterpreterSymbolPrefix = "_TAIL_CALL_"
+
+func tailCallInterpreterRange(sym libpf.Symbol) (util.Range, bool) {
+	if !strings.HasPrefix(string(sym.Name), tailCallInterpreterSymbolPrefix) || sym.Size == 0 {
+		return util.Range{}, false
+	}
+	start := uint64(sym.Address)
+	end := start + sym.Size
+	if end <= start {
+		return util.Range{}, false
+	}
+	return util.Range{Start: start, End: end}, true
+}
+
+func findTailCallInterpreterRanges(ef *pfelf.File) ([]util.Range, error) {
+	ranges := make([]util.Range, 0)
+	err := ef.VisitSymbols(func(sym libpf.Symbol) bool {
+		if codeRange, ok := tailCallInterpreterRange(sym); ok {
+			ranges = append(ranges, codeRange)
+		}
+		return true
+	})
+	return ranges, err
 }
 
 // findColdRange finds a relative jump from the _PyEval_EvalFrameDefault outside itself

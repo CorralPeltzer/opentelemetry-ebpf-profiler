@@ -73,8 +73,10 @@ const (
 )
 
 const (
-	BitWidthPID  = C.BIT_WIDTH_PID
-	BitWidthPage = C.BIT_WIDTH_PAGE
+	BitWidthPID    = C.BIT_WIDTH_PID
+	BitWidthPage   = C.BIT_WIDTH_PAGE
+	BitWidthFileID = C.BIT_WIDTH_FILE_ID
+	BitWidthOffset = C.BIT_WIDTH_OFFSET
 )
 
 const (
@@ -103,6 +105,7 @@ type ApmTraceID C.ApmTraceID
 type CustomLabel C.CustomLabel
 type CustomLabelsArray C.CustomLabelsArray
 type Event C.Event
+type InterpreterRange C.InterpreterRange
 type OffsetRange C.OffsetRange
 type PIDPage C.PIDPage
 type PIDPageMappingInfo C.PIDPageMappingInfo

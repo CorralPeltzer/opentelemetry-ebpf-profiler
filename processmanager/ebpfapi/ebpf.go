@@ -5,6 +5,7 @@ package ebpfapi // import "go.opentelemetry.io/ebpf-profiler/processmanager/ebpf
 
 import (
 	"fmt"
+	"math/bits"
 
 	"go.opentelemetry.io/ebpf-profiler/host"
 	"go.opentelemetry.io/ebpf-profiler/interpreter"
@@ -15,6 +16,18 @@ import (
 	"go.opentelemetry.io/ebpf-profiler/support"
 	"go.opentelemetry.io/ebpf-profiler/util"
 )
+
+// InterpreterRangeKey returns an LPM trie key for an exact interpreter code range.
+func InterpreterRangeKey(fileID host.FileID, prefix lpm.Prefix) support.InterpreterRange {
+	fileIDValue := uint64(fileID)
+	return support.InterpreterRange{
+		PrefixLen:  uint32(support.BitWidthFileID) + prefix.Length,
+		FileIDHigh: bits.ReverseBytes32(uint32(fileIDValue >> 32)),
+		FileIDLow:  bits.ReverseBytes32(uint32(fileIDValue)),
+		OffsetHigh: bits.ReverseBytes32(uint32(prefix.Key >> 32)),
+		OffsetLow:  bits.ReverseBytes32(uint32(prefix.Key)),
+	}
+}
 
 // EbpfHandler provides the functionality to interact with eBPF maps.
 type EbpfHandler interface {

@@ -43,6 +43,7 @@ const (
 type ebpfMapsImpl struct {
 	// Interpreter related eBPF maps
 	InterpreterOffsets *cebpf.Map `name:"interpreter_offsets"`
+	InterpreterRanges  *cebpf.Map `name:"interpreter_ranges"`
 	DotnetProcs        *cebpf.Map `name:"dotnet_procs"`
 	PerlProcs          *cebpf.Map `name:"perl_procs"`
 	PyProcs            *cebpf.Map `name:"py_procs"`
@@ -133,6 +134,34 @@ func LoadMaps(ctx context.Context, interpretersConfig interpreterconfig.Config,
 func (impl *ebpfMapsImpl) UpdateInterpreterOffsets(ebpfProgIndex uint16, fileID host.FileID,
 	offsetRanges []util.Range,
 ) error {
+	if len(offsetRanges) > 2 {
+		key, value, err := ebpfapi.InterpreterOffsetKeyValue(ebpfProgIndex, fileID,
+			offsetRanges[:2])
+		if err != nil {
+			return err
+		}
+		value.Use_interpreter_ranges = 1
+		if err := impl.InterpreterOffsets.Update(unsafe.Pointer(&key), unsafe.Pointer(&value),
+			cebpf.UpdateAny); err != nil {
+			return fmt.Errorf("failed to place interpreter range in map: %v", err)
+		}
+
+		for _, offsetRange := range offsetRanges {
+			prefixes, err := lpm.CalculatePrefixList(offsetRange.Start, offsetRange.End)
+			if err != nil {
+				return err
+			}
+			for _, prefix := range prefixes {
+				key := ebpfapi.InterpreterRangeKey(fileID, prefix)
+				if err := impl.InterpreterRanges.Update(unsafe.Pointer(&key),
+					unsafe.Pointer(&ebpfProgIndex), cebpf.UpdateAny); err != nil {
+					return fmt.Errorf("failed to place exact interpreter range in map: %v", err)
+				}
+			}
+		}
+		return nil
+	}
+
 	key, value, err := ebpfapi.InterpreterOffsetKeyValue(ebpfProgIndex, fileID, offsetRanges)
 	if err != nil {
 		return err
