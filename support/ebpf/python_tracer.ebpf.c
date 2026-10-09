@@ -286,6 +286,9 @@ python_step_python(PerCPURecord *record, const PyProcInfo *pyinfo, void **py_fra
 {
   bool continue_with_next;
   ErrorCode error = process_python_frame(record, pyinfo, py_frame, &continue_with_next);
+  if (!pyinfo->continue_with_next_unwinder) {
+    continue_with_next = false;
+  }
   if (error) {
     *unwinder = PROG_UNWIND_STOP;
     unwinder_mark_done(record, PROG_UNWIND_PYTHON);

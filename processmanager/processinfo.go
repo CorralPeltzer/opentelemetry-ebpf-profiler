@@ -36,6 +36,7 @@ import (
 	"go.opentelemetry.io/ebpf-profiler/process"
 	"go.opentelemetry.io/ebpf-profiler/process/processcontext"
 	"go.opentelemetry.io/ebpf-profiler/processmanager/execinfomanager"
+	"go.opentelemetry.io/ebpf-profiler/pyroscope/dynamicprofiling"
 	"go.opentelemetry.io/ebpf-profiler/reporter"
 	"go.opentelemetry.io/ebpf-profiler/support"
 	"go.opentelemetry.io/ebpf-profiler/times"
@@ -593,6 +594,9 @@ func (c *interpreterMappingCollector) mappings() []process.RawMapping {
 //
 // TODO: Periodic synchronization of mappings for every tracked PID.
 func (pm *ProcessManager) SynchronizeProcess(pr process.Process) {
+	if !pm.profilingEnabled(pr) {
+		return
+	}
 	pid := pr.PID()
 	log.Debugf("= PID: %v", pid)
 
@@ -868,6 +872,34 @@ func (pm *ProcessManager) SynchronizeProcess(pr process.Process) {
 		// Also see: Unified PID Events design doc
 		pm.ebpf.RemoveReportedPID(pid)
 	}
+}
+
+// profilingEnabled retains tracked processes until their exit has been processed.
+func (pm *ProcessManager) profilingEnabled(pr process.Process) bool {
+	if pm.policy == nil {
+		// New() defaults a nil policy to AlwaysOnPolicy; this only happens for
+		// upstream tests that construct ProcessManager directly.
+		return true
+	}
+	if _, ok := pm.policy.(dynamicprofiling.AlwaysOnPolicy); ok {
+		// Optimization: skip containerId extraction for AlwaysOnPolicy - it always returns true.
+		// This also fixes compatibility with coredump tests where containerId extraction fails.
+		return true
+	}
+
+	containerID, err := process.ExtractContainerIDCached(pr.PID())
+	if err != nil {
+		containerID = ""
+		log.Debugf("Could not detect containerID for pid %d: %s", pr.PID(), err.Error())
+	}
+	enabled := pm.policy.ProfilingEnabled(pr, containerID)
+	if enabled {
+		return true
+	}
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	_, enabled = pm.pidToProcessInfo[pr.PID()]
+	return enabled
 }
 
 // CleanupPIDs executes a periodic synchronization of pidToProcessInfo table with system processes.

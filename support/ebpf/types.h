@@ -505,6 +505,7 @@ typedef struct PyProcInfo {
   u8 PyCodeObject_co_flags, PyCodeObject_co_firstlineno;
   u8 PyCodeObject_sizeof;
   u8 lasti_is_codeunit, frame_is_cframe;
+  u8 continue_with_next_unwinder;
 } PyProcInfo;
 
 // PHPProcInfo is a container for the data needed to build a stack trace for a PHP process.
@@ -1102,7 +1103,22 @@ typedef struct OffsetRange {
   u64 lower_offset2;
   u64 upper_offset2;
   u16 program_index; // The interpreter-specific program index to call.
+  u8 use_interpreter_ranges;
 } OffsetRange;
+
+// InterpreterRange is an LPM trie key that identifies one exact interpreter
+// code range within an executable. The address fields are split into 32-bit
+// words to keep the key data packed immediately after prefixLen.
+typedef struct InterpreterRange {
+  u32 prefixLen;
+  __be32 fileIDHigh;
+  __be32 fileIDLow;
+  __be32 offsetHigh;
+  __be32 offsetLow;
+} InterpreterRange;
+
+#define BIT_WIDTH_FILE_ID 64
+#define BIT_WIDTH_OFFSET  64
 
 // SystemAnalysis is the structure in system_analysis map
 typedef struct SystemAnalysis {

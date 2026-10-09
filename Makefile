@@ -141,7 +141,11 @@ TESTDATA_DIRS:= \
 
 GOLABELS_TESTDATA_TARGETS := pprof_stable pprof_stable_buildinfo_cgo pprof_stable_cgo pprof_stable_cgo_pie
 
-test-deps: $(GOLABELS_TESTDATA_TARGETS)
+.PHONY: fork-test-fixtures
+fork-test-fixtures:
+	tar -xf tools/coredump/testdata/fork-fixtures/python315.tar -C tools/coredump
+
+test-deps: $(GOLABELS_TESTDATA_TARGETS) fork-test-fixtures
 	$(foreach testdata_dir, $(TESTDATA_DIRS), \
 		($(MAKE) -C "$(testdata_dir)") || exit ; \
 	)

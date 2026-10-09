@@ -130,6 +130,16 @@ struct interpreter_offsets_t {
   __uint(max_entries, 32);
 } interpreter_offsets SEC(".maps");
 
+// Exact interpreter code ranges for runtimes whose execution is distributed
+// across more than the two ranges supported by interpreter_offsets.
+struct interpreter_ranges_t {
+  __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+  __type(key, InterpreterRange);
+  __type(value, u16);
+  __uint(max_entries, 131072);
+  __uint(map_flags, BPF_F_NO_PREALLOC);
+} interpreter_ranges SEC(".maps");
+
 // Maps fileID and page to information of stack deltas associated with that page.
 struct stack_delta_page_to_info_t {
   __uint(type, BPF_MAP_TYPE_HASH);

@@ -32,6 +32,7 @@ import (
 	"go.opentelemetry.io/ebpf-profiler/interpreter/interpreterconfig"
 	"go.opentelemetry.io/ebpf-profiler/libpf/pfunsafe"
 	"go.opentelemetry.io/ebpf-profiler/process"
+	"go.opentelemetry.io/ebpf-profiler/pyroscope/dynamicprofiling"
 	"go.opentelemetry.io/ebpf-profiler/reporter/samples"
 
 	"go.opentelemetry.io/ebpf-profiler/kallsyms"
@@ -237,6 +238,7 @@ func (t *Tracer) signalDone() {
 }
 
 type Config struct {
+	Policy dynamicprofiling.Policy
 	// ExecutableReporter allows to configure a ExecutableReporter to hook seen executables.
 	// NOTE: This is used by external implementations embedding opentelemtry-ebpf-profiler.
 	ExecutableReporter reporter.ExecutableReporter
@@ -367,6 +369,7 @@ func NewTracer(ctx context.Context, cfg *Config) (*Tracer, error) {
 		FilterErrorFrames:     cfg.FilterErrorFrames,
 		IncludeEnvVars:        cfg.IncludeEnvVars,
 		ProcessMetaEnrichers:  cfg.ProcessMetaEnrichers,
+		Policy:                cfg.Policy,
 	})
 	if err != nil {
 		lifecycleCancel()

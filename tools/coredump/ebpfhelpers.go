@@ -108,6 +108,22 @@ func __bpf_map_lookup_elem(id C.u64, mapdef unsafe.Pointer, keyptr unsafe.Pointe
 				return val
 			}
 		}
+	case unsafe.Pointer(&C.interpreter_ranges):
+		key := *(*support.InterpreterRange)(keyptr)
+		for key.PrefixLen >= uint32(support.BitWidthFileID) {
+			if innerMap, ok := ctx.maps[mapdef]; ok {
+				if val, ok := innerMap[key]; ok {
+					return val
+				}
+			}
+			key.PrefixLen--
+			offset := uint64(bits.ReverseBytes32(key.OffsetHigh))<<32 |
+				uint64(bits.ReverseBytes32(key.OffsetLow))
+			shiftBits := uint32(support.BitWidthFileID+support.BitWidthOffset) - key.PrefixLen
+			offset &= ^uint64(0) << shiftBits
+			key.OffsetHigh = bits.ReverseBytes32(uint32(offset >> 32))
+			key.OffsetLow = bits.ReverseBytes32(uint32(offset))
+		}
 	case unsafe.Pointer(&C.dotnet_procs), unsafe.Pointer(&C.perl_procs),
 		unsafe.Pointer(&C.php_procs), unsafe.Pointer(&C.py_procs),
 		unsafe.Pointer(&C.hotspot_procs), unsafe.Pointer(&C.ruby_procs),

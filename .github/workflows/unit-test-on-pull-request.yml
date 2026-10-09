@@ -181,7 +181,9 @@ jobs:
             coredumps-arm64
             coredumps-
       - name: Run coredump tests
-        run: GODEBUG=asyncpreemptoff=1 go test -v ./tools/coredump/
+        run: |
+          make fork-test-fixtures
+          GODEBUG=asyncpreemptoff=1 go test -v ./tools/coredump/
 
   integration-tests:
     name: Integration tests (v${{ matrix.kernel }} ${{ matrix.target_arch }})

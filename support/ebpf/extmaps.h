@@ -14,6 +14,7 @@ extern struct reported_pids_t reported_pids;
 extern struct pid_events_t pid_events;
 extern struct inhibit_events_t inhibit_events;
 extern struct interpreter_offsets_t interpreter_offsets;
+extern struct interpreter_ranges_t interpreter_ranges;
 extern struct trace_events_t trace_events;
 extern struct go_procs_t go_procs;
 extern struct thread_context_procs_t thread_context_procs;

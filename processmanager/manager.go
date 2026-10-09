@@ -33,6 +33,7 @@ import (
 	"go.opentelemetry.io/ebpf-profiler/process/processcontext"
 	pmebpf "go.opentelemetry.io/ebpf-profiler/processmanager/ebpfapi"
 	eim "go.opentelemetry.io/ebpf-profiler/processmanager/execinfomanager"
+	"go.opentelemetry.io/ebpf-profiler/pyroscope/dynamicprofiling"
 	"go.opentelemetry.io/ebpf-profiler/reporter"
 	"go.opentelemetry.io/ebpf-profiler/reporter/samples"
 	"go.opentelemetry.io/ebpf-profiler/times"
@@ -62,6 +63,7 @@ var (
 
 // Config contains the dependencies and options used to create a ProcessManager.
 type Config struct {
+	Policy                dynamicprofiling.Policy
 	InterpretersConfig    interpreterconfig.Config
 	MonitorInterval       time.Duration
 	ExecutableUnloadDelay time.Duration
@@ -79,6 +81,9 @@ type Config struct {
 // New creates a new ProcessManager which is responsible for keeping track of loading
 // and unloading of symbols for processes.
 func New(ctx context.Context, cfg Config) (*ProcessManager, error) {
+	if cfg.Policy == nil {
+		cfg.Policy = dynamicprofiling.AlwaysOnPolicy{}
+	}
 	if cfg.ExecutableReporter == nil {
 		cfg.ExecutableReporter = executableReporterStub{}
 	}
@@ -144,6 +149,7 @@ func New(ctx context.Context, cfg Config) (*ProcessManager, error) {
 		metricsAddSlice:          metrics.AddSlice,
 		filterErrorFrames:        cfg.FilterErrorFrames,
 		metaEnrichers:            metaEnrichers,
+		policy:                   cfg.Policy,
 		attachedProbes:           make(map[libpf.PID]map[ProbeAttacher]libpf.Void),
 	}
 

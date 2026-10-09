@@ -103,6 +103,7 @@ func (c *Controller) Start(ctx context.Context) error {
 		BPFFSRoot:                   c.config.BPFFSRoot,
 		OBIProcessCtx:               c.config.OBIProcessCtx,
 		ProcessMetaEnrichers:        c.config.ProcessMetaEnrichers,
+		Policy:                      c.config.Policy,
 		PIDNamespaceTranslationMode: c.config.PIDNamespaceTranslationMode,
 	})
 	if err != nil {

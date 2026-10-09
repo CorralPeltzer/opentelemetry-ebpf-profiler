@@ -66,8 +66,10 @@ const (
 )
 
 const (
-	BitWidthPID  = 0x20
-	BitWidthPage = 0x40
+	BitWidthPID    = 0x20
+	BitWidthPage   = 0x40
+	BitWidthFileID = 0x40
+	BitWidthOffset = 0x40
 )
 
 const (
@@ -97,13 +99,21 @@ type GolangLabel struct {
 	Key [16]uint8
 	Val [48]uint8
 }
+type InterpreterRange struct {
+	PrefixLen  uint32
+	FileIDHigh uint32
+	FileIDLow  uint32
+	OffsetHigh uint32
+	OffsetLow  uint32
+}
 type OffsetRange struct {
-	Lower_offset1 uint64
-	Upper_offset1 uint64
-	Lower_offset2 uint64
-	Upper_offset2 uint64
-	Program_index uint16
-	Pad_cgo_0     [6]byte
+	Lower_offset1          uint64
+	Upper_offset1          uint64
+	Lower_offset2          uint64
+	Upper_offset2          uint64
+	Program_index          uint16
+	Use_interpreter_ranges uint8
+	Pad_cgo_0              [5]byte
 }
 type PIDPage struct {
 	PrefixLen uint32
@@ -292,6 +302,8 @@ type PyProcInfo struct {
 	PyCodeObject_sizeof            uint8
 	Lasti_is_codeunit              uint8
 	Frame_is_cframe                uint8
+	Continue_with_next_unwinder    uint8
+	Pad_cgo_0                      [7]byte
 }
 type RubyProcInfo struct {
 	Version                      uint32

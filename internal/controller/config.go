@@ -2,6 +2,7 @@ package controller // import "go.opentelemetry.io/ebpf-profiler/internal/control
 
 import (
 	"go.opentelemetry.io/ebpf-profiler/process"
+	"go.opentelemetry.io/ebpf-profiler/pyroscope/dynamicprofiling"
 
 	"go.opentelemetry.io/collector/consumer/xconsumer"
 
@@ -11,6 +12,7 @@ import (
 
 type Config struct {
 	config.Config
+	Policy dynamicprofiling.Policy
 
 	ExecutableReporter reporter.ExecutableReporter
 	// ProcessMetaEnrichers are optional hooks for enriching process metadata at

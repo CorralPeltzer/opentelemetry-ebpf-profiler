@@ -1,0 +1,53 @@
+--- a/internal/component/pyroscope/ebpf/ebpf_linux.go
++++ b/internal/component/pyroscope/ebpf/ebpf_linux.go
+@@ -325,7 +325,16 @@
+ 	mf := args.MappingFile.Value()
+ 	open := func() (process.ReadAtCloser, error) {
+ 		fallback := func() (process.ReadAtCloser, error) {
+-			return args.Process.OpenMappingFile(args.Mapping)
++			f, err := args.Process.OpenMappingFile(args.Mapping)
++			if err != nil {
++				return nil, err
++			}
++			r, ok := f.(process.ReadAtCloser)
++			if !ok {
++				_ = f.Close()
++				return nil, fmt.Errorf("mapping file does not implement io.ReaderAt")
++			}
++			return r, nil
+ 		}
+ 		if args.DebuglinkFileName == "" {
+ 			return fallback()
+--- a/internal/component/pyroscope/ebpf/symb/irsymcache/dummy_process_test.go
++++ b/internal/component/pyroscope/ebpf/symb/irsymcache/dummy_process_test.go
+@@ -4,6 +4,7 @@
+ 
+ import (
+ 	"errors"
++	"io/fs"
+ 	"os"
+ 
+ 	"go.opentelemetry.io/ebpf-profiler/libpf"
+@@ -19,7 +20,7 @@
+ 	mappingsError error
+ }
+ 
+-func (d *dummyProcess) GetProcessMeta(config process.MetaConfig) process.ProcessMeta {
++func (d *dummyProcess) GetProcessMeta(_ []process.MetaEnricher) process.Meta {
+ 	panic("implement me")
+ }
+ 
+@@ -61,8 +62,12 @@
+ 	return libpf.FileIDFromExecutableFile(m.Path)
+ }
+ 
+-func (d *dummyProcess) OpenMappingFile(m *process.RawMapping) (process.ReadAtCloser, error) {
++func (d *dummyProcess) OpenMappingFile(m *process.RawMapping) (fs.File, error) {
+ 	return os.Open(m.Path)
++}
++
++func (d *dummyProcess) Open(name string) (fs.File, error) {
++	return os.Open("/" + name)
+ }
+ 
+ func (d *dummyProcess) OpenELF(name string) (*pfelf.File, error) {
