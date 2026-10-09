@@ -28,9 +28,10 @@ with this repository named `opentelemetry-ebpf-profiler`:
 cd ../alloy
 git apply ../opentelemetry-ebpf-profiler/pyroscope/alloy-compat.patch
 cp ../opentelemetry-ebpf-profiler/pyroscope/alloy.go.work go.work
-GOMAXPROCS=8 go test -p=8 -tags=nodocker ./internal/component/pyroscope/ebpf/...
+GOMAXPROCS=8 go test -p=8 -tags=nodocker,promtail_journal_enabled,netgo \
+  ./internal/component/pyroscope/ebpf/... ./internal/component/loki/source/journal/...
 GOMAXPROCS=8 SKIP_UI_BUILD=1 SKIP_CODE_GENERATION=1 RELEASE_BUILD=1 \
-  GO_FLAGS='-v -p=8' make alloy
+  GO_TAGS='netgo promtail_journal_enabled' GO_FLAGS='-v -p=8' make alloy
 ```
 
 The patch updates Alloy's process-file access and its test double for the
@@ -40,7 +41,10 @@ Alloy still uses the pre-stable OpenTelemetry logging API, while the profiler
 needs the newer attribute API. The SDK stays on Alloy's original version to
 keep resource schema URLs consistent at startup.
 
-The build requires Alloy's normal build dependencies and generated UI assets.
+The build requires Alloy's normal build dependencies, `libsystemd-dev`, and
+generated UI assets. `promtail_journal_enabled` is required for journal log
+shipping; without it the journal component is a stub despite passing the
+configuration and readiness checks. Keep `CGO_ENABLED=1` for journal support.
 If the checkout has no generated UI assets, omit `SKIP_UI_BUILD=1` and install
 the UI build dependencies documented by Alloy.
 
