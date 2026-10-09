@@ -9,7 +9,43 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"go.opentelemetry.io/ebpf-profiler/libpf"
+	"go.opentelemetry.io/ebpf-profiler/util"
 )
+
+func TestTailCallInterpreterRange(t *testing.T) {
+	tests := map[string]struct {
+		sym      libpf.Symbol
+		expected util.Range
+		ok       bool
+	}{
+		"handler": {
+			sym:      libpf.Symbol{Name: "_TAIL_CALL_LOAD_FAST", Address: 0x1000, Size: 0x80},
+			expected: util.Range{Start: 0x1000, End: 0x1080},
+			ok:       true,
+		},
+		"cold handler": {
+			sym:      libpf.Symbol{Name: "_TAIL_CALL_LOAD_FAST.cold", Address: 0x2000, Size: 0x20},
+			expected: util.Range{Start: 0x2000, End: 0x2020},
+			ok:       true,
+		},
+		"unrelated symbol": {
+			sym: libpf.Symbol{Name: "_PyEval_EvalFrameDefault", Address: 0x3000, Size: 0x100},
+		},
+		"zero-sized handler": {
+			sym: libpf.Symbol{Name: "_TAIL_CALL_LOAD_FAST", Address: 0x4000},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			codeRange, ok := tailCallInterpreterRange(test.sym)
+			assert.Equal(t, test.ok, ok)
+			assert.Equal(t, test.expected, codeRange)
+		})
+	}
+}
 
 func TestValidateMaxValue(t *testing.T) {
 	type testStruct struct {

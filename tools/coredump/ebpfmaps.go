@@ -45,6 +45,30 @@ func (emc *ebpfMapsCoredump) CollectMetrics() []metrics.Metric {
 
 func (emc *ebpfMapsCoredump) UpdateInterpreterOffsets(ebpfProgIndex uint16,
 	fileID host.FileID, offsetRanges []util.Range) error {
+	if len(offsetRanges) > 2 {
+		key, value, err := pmebpf.InterpreterOffsetKeyValue(ebpfProgIndex, fileID,
+			offsetRanges[:2])
+		if err != nil {
+			return err
+		}
+		value.Use_interpreter_ranges = 1
+		emc.ctx.addMap(unsafe.Pointer(&C.interpreter_offsets), C.u64(key),
+			pfunsafe.FromPointer(&value))
+
+		for _, offsetRange := range offsetRanges {
+			prefixes, err := lpm.CalculatePrefixList(offsetRange.Start, offsetRange.End)
+			if err != nil {
+				return err
+			}
+			for _, prefix := range prefixes {
+				key := pmebpf.InterpreterRangeKey(fileID, prefix)
+				emc.ctx.addMap(unsafe.Pointer(&C.interpreter_ranges), key,
+					pfunsafe.FromPointer(&ebpfProgIndex))
+			}
+		}
+		return nil
+	}
+
 	key, value, err := pmebpf.InterpreterOffsetKeyValue(ebpfProgIndex, fileID, offsetRanges)
 	if err != nil {
 		return err

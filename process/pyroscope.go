@@ -1,0 +1,48 @@
+package process // import "go.opentelemetry.io/ebpf-profiler/process"
+
+import (
+	"io"
+	"time"
+
+	lru "github.com/elastic/go-freelru"
+
+	"go.opentelemetry.io/ebpf-profiler/libpf"
+)
+
+// ReadAtCloser is retained for Alloy's debug-info uploader.
+type ReadAtCloser interface {
+	io.ReaderAt
+	io.Closer
+}
+
+type cached[T any] struct {
+	t   T
+	err error
+}
+
+// This cache is added because, the pyroscope(alloy) needs to know the containerId to make
+// the decision if profiling is enabled or not based on pid and container id
+// and in the upstream, container id is extracted way deeper into the callchain where
+// it is way harder to plug the enable-disable feature. This is temporary (haha, naive)
+// workaround, and should be revisited. TODO create an upstream issue on enable-disable feature,
+// maybe they have better ideas
+var containerIDCache lru.Cache[libpf.PID, cached[libpf.String]]
+
+func init() {
+	var err error
+	h := func(pid libpf.PID) uint32 { return uint32(pid) }
+	containerIDCache, err = lru.NewSynced[libpf.PID, cached[libpf.String]](1024, h)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func ExtractContainerIDCached(pid libpf.PID) (string, error) {
+	res, ok := containerIDCache.GetAndRefresh(pid, time.Hour)
+	if ok {
+		return res.t.String(), res.err
+	}
+	cid, err := extractContainerID(pid)
+	containerIDCache.Add(pid, cached[libpf.String]{cid, err})
+	return cid.String(), err
+}
