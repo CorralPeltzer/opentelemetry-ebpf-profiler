@@ -51,3 +51,23 @@
  }
  
  func (d *dummyProcess) OpenELF(name string) (*pfelf.File, error) {
+--- a/internal/component/loki/source/journal/journal.go
++++ b/internal/component/loki/source/journal/journal.go
+@@ -93,7 +93,6 @@
+ 			c.tailer.Stop()
+ 		}
+ 		c.positions.Stop()
+-
+ 	}()
+ 
+ 	for {
+--- a/internal/component/loki/source/journal/journal_test.go
++++ b/internal/component/loki/source/journal/journal_test.go
+@@ -87,6 +87,7 @@
+ 		err = cjournal.Send(strconv.Itoa(1), cjournal.PriInfo, map[string]string{
+ 			"ALLOY_TEST_ID": id.String(),
+ 		})
++		require.NoError(t, err)
+ 
+ 		require.EventuallyWithT(t, func(c *assert.CollectT) {
+ 			require.Len(c, collector.Received(), 1)
