@@ -4,6 +4,9 @@ use (
 	.
 	./collector
 	./syntax
+	./tools
+	./integration-tests/docker/tests/loki-cloudflare/logpullmock
+	./packaging/homebrew/formula-gen
 )
 
 replace go.opentelemetry.io/ebpf-profiler => ../opentelemetry-ebpf-profiler
