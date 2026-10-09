@@ -10,7 +10,7 @@
 // Number of loop iterations in unwind_python. Each iteration handles either
 // a Python or a native frame, so the name follows the *_FRAMES_PER_PROGRAM
 // convention of the other tracers even though it covers both. 10 fits the
-// 5.x / 6.0-6.5 verifier; the host agent bumps it to 15 on 6.6+.
+// 5.x / 6.0-6.5 verifier; the host agent uses 12 on 6.6-6.7 and 15 on 6.8+.
 BPF_RODATA_VAR(u32, python_frames_per_program, 10)
 
 // Forward declaration to avoid warnings like
@@ -230,7 +230,9 @@ static EBPF_INLINE ErrorCode get_PyThreadState(
   return ERR_OK;
 }
 
-static EBPF_INLINE ErrorCode get_PyFrame(const PyProcInfo *pyinfo, void **frame)
+// Keep TLS lookup branches in their own BPF call frame so their temporary state
+// does not multiply verifier paths through the Python/native unwinding loop.
+static __attribute__((noinline)) ErrorCode get_PyFrame(const PyProcInfo *pyinfo, void **frame)
 {
   void *tsd_base;
   if (tsd_get_base(&tsd_base)) {

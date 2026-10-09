@@ -728,12 +728,15 @@ func loadRodataVars(coll *cebpf.CollectionSpec, kmod *kallsyms.Module, cfg *Conf
 		}
 	}
 
-	// The Python/native hybrid unwinder's per program loop count defaults to 10
-	// which is the largest that fits the 5.x / 6.0-6.5 verifier. Kernels 6.6+ are
-	// more efficient and can support more, but 6.18's verifier is tighter than
-	// 6.6-6.16; 15 fits the floor across the 6.6+ CI matrix.
+	// The Python/native hybrid unwinder defaults to 10 loop iterations before
+	// Linux 6.6. With the TLS and tail-call range lookups, 6.6-6.7 can handle 12;
+	// the more efficient 6.8+ verifiers can retain the existing limit of 15.
 	if major > 6 || (major == 6 && minor >= 6) {
-		if err := coll.Variables["python_frames_per_program"].Set(uint32(15)); err != nil {
+		framesPerProgram := uint32(12)
+		if major > 6 || minor >= 8 {
+			framesPerProgram = 15
+		}
+		if err := coll.Variables["python_frames_per_program"].Set(framesPerProgram); err != nil {
 			return fmt.Errorf("failed to set python_frames_per_program: %v", err)
 		}
 	}
