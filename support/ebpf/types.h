@@ -490,9 +490,12 @@ typedef struct PyProcInfo {
   // The address of the autoTLSkey variable
   u64 autoTLSKeyAddr;
   u64 noneStructAddr;
+  // TP-relative for static TLS, or module-relative when tls_module_id is nonzero.
+  s64 tls_offset;
+  u32 tls_module_id;
   u16 version;
-  s16 tls_offset;
   TSDInfo tsdInfo;
+  DTVInfo dtvInfo;
   // The Python object member offsets
   u8 PyThreadState_frame;
   u8 PyCFrame_current_frame;

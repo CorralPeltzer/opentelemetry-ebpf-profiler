@@ -273,9 +273,11 @@ type PerlProcInfo struct {
 type PyProcInfo struct {
 	AutoTLSKeyAddr                 uint64
 	NoneStructAddr                 uint64
+	Tls_offset                     int64
+	Tls_module_id                  uint32
 	Version                        uint16
-	Tls_offset                     int16
 	TsdInfo                        TSDInfo
+	DtvInfo                        DTVInfo
 	PyThreadState_frame            uint8
 	PyCFrame_current_frame         uint8
 	PyFrameObject_f_back           uint8
@@ -290,7 +292,6 @@ type PyProcInfo struct {
 	PyCodeObject_sizeof            uint8
 	Lasti_is_codeunit              uint8
 	Frame_is_cframe                uint8
-	Pad_cgo_0                      [6]byte
 }
 type RubyProcInfo struct {
 	Version                      uint32

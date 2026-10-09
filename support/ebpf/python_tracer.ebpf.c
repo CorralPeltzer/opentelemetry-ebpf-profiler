@@ -184,25 +184,37 @@ push_frame:
 
 // get_PyThreadState retrieves the PyThreadState* for the current thread.
 //
-// Python 3.12 and earlier set the thread_state using pthread_setspecific with the key
-// stored in a global variable autoTLSkey.
-// Python 3.13+ uses a direct thread-local variable _Py_tss_tstate instead.
+// Python 3.13+ provides _Py_tss_tstate, accessed through static or dynamic TLS.
+// The pthread key fallback is available only before Python 3.15.
 static EBPF_INLINE ErrorCode get_PyThreadState(
   const PyProcInfo *pyinfo, void *tsd_base, void *autoTLSkeyAddr, void **thread_state)
 {
-  if (pyinfo->tls_offset != 0) {
-    if (bpf_probe_read_user(thread_state, sizeof(void *), tsd_base + pyinfo->tls_offset)) {
-      DEBUG_PRINT(
-        "Failed to read direct TLS at base 0x%lx offset %d",
-        (unsigned long)tsd_base,
-        pyinfo->tls_offset);
+  if (pyinfo->tls_module_id != 0) {
+    if (dtv_read(
+          &pyinfo->dtvInfo,
+          tsd_base,
+          pyinfo->tls_module_id,
+          (u64)pyinfo->tls_offset,
+          thread_state)) {
       increment_metric(metricID_UnwindPythonErrReadThreadStateAddr);
       return ERR_PYTHON_READ_THREAD_STATE_ADDR;
     }
     return ERR_OK;
   }
 
-  // Python 3.12 and earlier: use pthread TLS
+  if (pyinfo->tls_offset != 0 || pyinfo->version >= 0x030f) {
+    if (bpf_probe_read_user(thread_state, sizeof(void *), tsd_base + pyinfo->tls_offset)) {
+      DEBUG_PRINT(
+        "Failed to read direct TLS at base 0x%lx offset %lld",
+        (unsigned long)tsd_base,
+        (long long)pyinfo->tls_offset);
+      increment_metric(metricID_UnwindPythonErrReadThreadStateAddr);
+      return ERR_PYTHON_READ_THREAD_STATE_ADDR;
+    }
+    return ERR_OK;
+  }
+
+  // Older builds without a direct TLS offset: use pthread TLS.
   u32 key;
   if (bpf_probe_read_user(&key, sizeof(key), autoTLSkeyAddr)) {
     DEBUG_PRINT("Failed to read autoTLSkey from 0x%lx", (unsigned long)autoTLSkeyAddr);

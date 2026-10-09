@@ -1,0 +1,94 @@
+{
+  "coredump-ref": "3f3d1563b15b2523fb0907f413f21e896ea10f61f9d2abbe12d1b2041cf54513",
+  "threads": [
+    {
+      "lwp": 199210,
+      "frames": [
+        "libpython3.15.so.1.0+0x184d0f",
+        "libpython3.15.so.1.0+0x11a20e",
+        "leaf+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:13",
+        "recursive+3 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:20",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "recursive+2 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:19",
+        "sort_key+1 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:24",
+        "libpython3.15.so.1.0+0x2a8736",
+        "libpython3.15.so.1.0+0x2b36e1",
+        "libpython3.15.so.1.0+0x13d0f9",
+        "libpython3.15.so.1.0+0x175388",
+        "libpython3.15.so.1.0+0x13d04d",
+        "libpython3.15.so.1.0+0x2a0d0e",
+        "libpython3.15.so.1.0+0x13d04d",
+        "libpython3.15.so.1.0+0x2a257b",
+        "worker+5 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:32",
+        "<module>+41 in /home/miguel/opentelemetry-ebpf-profiler-python315/tools/coredump/testsources/python/threadstate.py:42",
+        "libpython3.15.so.1.0+0x2a7250",
+        "libpython3.15.so.1.0+0x2b3784",
+        "libpython3.15.so.1.0+0x29a085",
+        "libpython3.15.so.1.0+0x342ba5",
+        "libpython3.15.so.1.0+0x33a626",
+        "libpython3.15.so.1.0+0x33f930",
+        "libpython3.15.so.1.0+0x36e28a",
+        "libpython3.15.so.1.0+0x36eb41",
+        "python3.15-shared+0x116c",
+        "libc.so.6+0x2a600",
+        "libc.so.6+0x2a717",
+        "python3.15-shared+0x1084"
+      ]
+    },
+    {
+      "lwp": 199220,
+      "frames": [
+        "libc.so.6+0xac802",
+        "<unwinding aborted due to error native_zero_pc>"
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "ref": "52c227df9d53248238602c1ddaccd2c8ddc4cc6a61aa45d7c425af590b8806a5",
+      "local-path": "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache"
+    },
+    {
+      "ref": "bda779ea9e9ad234f60315477d7cfd0bdde861cd8ddd9df8cdaf62f18c4cec14",
+      "local-path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    },
+    {
+      "ref": "1c488db6f4fe8cecb72456bc018de000b7a9b539c2994864b0416b5e8371b3d8",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libm.so.6"
+    },
+    {
+      "ref": "2e5f66e2784c2746775567ff9916f6e7503182a8f1f2deb8ca729dfc1463849f",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libexpat.so.1.11.2"
+    },
+    {
+      "ref": "47b61967895b30e8c0c6818dd633ffeb87711cf637c688f981896f0dd84ce23b",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libz.so.1.3.1"
+    },
+    {
+      "ref": "8491a9140d0d8fc81ea783adfe83e8d57b029464e33704dc1932b9b63dfbe485",
+      "local-path": "/home/miguel/profiling-exploration/python315/python3.15-shared"
+    },
+    {
+      "ref": "74336f094157053703fe153f9fe4efa9efd7589bfc4e9695ac8195cf8d5fa4c4",
+      "local-path": "/usr/lib/locale/locale-archive"
+    },
+    {
+      "ref": "85e64f97e348786a8fb4d9f3d52fec289e2fb86bba20f0731dfe61990525e0f7",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "ref": "4d8a8b3da21476ee330833d670ec7d4b7f4ff7f5db4f69d62fb4899fcc559907",
+      "local-path": "/home/miguel/profiling-exploration/python315/runtime/usr/lib/x86_64-linux-gnu/libpython3.15.so.1.0"
+    },
+    {
+      "ref": "40680545df4f92443c15e7c6f51a7fdc9154ebedd9eff1ed5c48437039add365",
+      "local-path": "/usr/lib/locale/C.utf8/LC_CTYPE"
+    }
+  ]
+}

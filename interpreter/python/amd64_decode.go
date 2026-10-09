@@ -63,3 +63,40 @@ func evaluateStubAnswerAMD64(res e.Expression, memBase uint64) (uint64, error) {
 	}
 	return 0, fmt.Errorf("not found %s", res.DebugString())
 }
+
+// decodeTLSAMD64 recognizes general/local dynamic TLS in _PyThreadState_GetCurrent:
+// __tls_get_addr(&tls_index), followed by a pointer load from the returned block.
+func decodeTLSAMD64(code []byte, codeAddress uint64) (address, offset uint64, err error) {
+	it := amd.NewInterpreterWithCodeAt(code, e.Imm(codeAddress))
+	op, err := it.LoopWithBreak(func(op x86asm.Inst) bool {
+		return op.Op == x86asm.CALL || op.Op == x86asm.JMP || op.Op == x86asm.RET
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	address, ok := e.AsConstant(it.Regs.Get(amd.RDI))
+	if op.Op != x86asm.CALL || !ok || address == 0 || address%8 != 0 {
+		return 0, 0, fmt.Errorf("no TLS index argument")
+	}
+
+	// Start with fresh registers: RAX now represents the resolver's return value.
+	it = amd.NewInterpreterWithCodeAt(code[it.PC():], e.Imm(codeAddress+it.PC()))
+	base := it.Regs.Get(amd.RAX)
+	op, err = it.LoopWithBreak(func(op x86asm.Inst) bool {
+		return op.Op == x86asm.RET || op.Op == x86asm.CALL || op.Op == x86asm.JMP
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	result := it.Regs.Get(amd.RAX)
+	disp := e.NewImmediateCapture("offset")
+	if op.Op == x86asm.RET {
+		if result.Match(e.Mem8(base)) {
+			return address, 0, nil
+		}
+		if result.Match(e.Mem8(e.Add(base, disp))) && disp.CapturedValue() < 4096 {
+			return address, disp.CapturedValue(), nil
+		}
+	}
+	return 0, 0, fmt.Errorf("no thread-state load from TLS result")
+}

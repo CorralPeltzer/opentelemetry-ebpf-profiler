@@ -80,6 +80,7 @@ type pythonData struct {
 	// For Python 3.13+: staticTLSOffset stores the TLS offset for direct TLS access
 	// extracted from assembly analysis.
 	staticTLSOffset int64
+	sharedTLS       pythonSharedTLS
 
 	noneStruct libpf.SymbolValue
 
@@ -162,6 +163,13 @@ func (d *pythonData) Attach(_ interpreter.EbpfHandler, _ libpf.PID, bias libpf.A
 		rm:               rm,
 		bias:             bias,
 		addrToCodeObject: addrToCodeObject,
+		tlsOffset:        d.staticTLSOffset,
+	}
+	if d.sharedTLS.address != 0 {
+		i.tlsOffset, i.tlsModuleID, err = d.sharedTLS.resolve(rm, bias)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	switch {
@@ -354,6 +362,9 @@ type pythonInstance struct {
 	rm   remotememory.RemoteMemory
 	bias libpf.Address
 
+	tlsOffset   int64
+	tlsModuleID uint32
+
 	// addrToCodeObject maps a Python Code object to a pythonCodeObject which caches
 	// the needed data from it.
 	addrToCodeObject *freelru.LRU[libpf.Address, *pythonCodeObject]
@@ -403,11 +414,12 @@ func (p *pythonInstance) UpdateLibcInfo(ebpf interpreter.EbpfHandler, pid libpf.
 	libcInfo libc.LibcInfo) error {
 	d := p.d
 
-	// If we don't have a static TLS offset (Python < 3.13 or extraction failed),
-	// we need TSDInfo to access thread state via pthread_getspecific.
 	// Since UpdateLibcInfo may be called multiple times as LibcInfo is collected
-	// from multiple DSOs, wait until we have TSDInfo before inserting proc data.
-	if d.staticTLSOffset == 0 && !libcInfo.HasTSDInfo() {
+	// from multiple DSOs, wait for the metadata required by the selected TLS model.
+	if p.tlsModuleID != 0 && !libcInfo.HasDTVInfo() {
+		return nil
+	}
+	if d.version < pythonVer(3, 15) && p.tlsOffset == 0 && !libcInfo.HasTSDInfo() {
 		return nil
 	}
 
@@ -421,7 +433,9 @@ func (p *pythonInstance) UpdateLibcInfo(ebpf interpreter.EbpfHandler, pid libpf.
 	cdata := support.PyProcInfo{
 		AutoTLSKeyAddr: uint64(d.autoTLSKey) + uint64(p.bias),
 		Version:        d.version,
-		Tls_offset:     int16(d.staticTLSOffset),
+		Tls_offset:     p.tlsOffset,
+		Tls_module_id:  p.tlsModuleID,
+		DtvInfo:        libcInfo.DTVInfo,
 		TsdInfo:        libcInfo.TSDInfo,
 
 		PyThreadState_frame:            uint8(vm.PyThreadState.Frame),
@@ -832,7 +846,7 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 	version := pythonVer(major, minor)
 
 	minVer := pythonVer(3, 6)
-	maxVer := pythonVer(3, 14)
+	maxVer := pythonVer(3, 15)
 	if version < minVer || version > maxVer {
 		return nil, fmt.Errorf("unsupported Python %d.%d (need >= %d.%d and <= %d.%d)",
 			major, minor,
@@ -846,22 +860,27 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 		}
 	}
 
-	// Calls first: PyThread_tss_get(autoTSSKey)
-	autoTLSKey, err = decodeStub(ef, pyruntimeAddr, "PyGILState_GetThisThreadState")
-	if autoTLSKey == libpf.SymbolValueInvalid {
-		return nil, fmt.Errorf("unable to resolve autoTLSKey %v", err)
-	}
-	if version >= pythonVer(3, 7) && autoTLSKey%8 == 0 {
-		// On Python 3.7+, the call is to PyThread_tss_get, but can get optimized to
-		// call directly pthread_getspecific. So we might be finding the address
-		// for "Py_tss_t" or "pthread_key_t" depending on call target.
-		// Technically it would be best to resolve the jmp/call destination, but
-		// finding the jump slot name requires fairly complex plt relocation parsing.
-		// Instead this assumes that the TLS key address should be addr%8==4. This
-		// is because Py_tss_t consists of two "int" types and we want the latter.
-		// The first "int" is guaranteed to be aligned to 8, because in struct _PyRuntime
-		// it follows a pointer field.
-		autoTLSKey += 4
+	// Python 3.15 removed the pthread key used by PyGILState_GetThisThreadState.
+	// It now reads a different TLS variable from the current thread state, so use
+	// _PyThreadState_GetCurrent below instead.
+	if version < pythonVer(3, 15) {
+		// Calls first: PyThread_tss_get(autoTSSKey)
+		autoTLSKey, err = decodeStub(ef, pyruntimeAddr, "PyGILState_GetThisThreadState")
+		if autoTLSKey == libpf.SymbolValueInvalid {
+			return nil, fmt.Errorf("unable to resolve autoTLSKey %v", err)
+		}
+		if version >= pythonVer(3, 7) && autoTLSKey%8 == 0 {
+			// On Python 3.7+, the call is to PyThread_tss_get, but can get optimized to
+			// call directly pthread_getspecific. So we might be finding the address
+			// for "Py_tss_t" or "pthread_key_t" depending on call target.
+			// Technically it would be best to resolve the jmp/call destination, but
+			// finding the jump slot name requires fairly complex plt relocation parsing.
+			// Instead this assumes that the TLS key address should be addr%8==4. This
+			// is because Py_tss_t consists of two "int" types and we want the latter.
+			// The first "int" is guaranteed to be aligned to 8, because in struct _PyRuntime
+			// it follows a pointer field.
+			autoTLSKey += 4
+		}
 	}
 
 	interpRanges, err := findInterpreterRanges(info, ef)
@@ -871,11 +890,19 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 
 	// Python 3.13+ uses direct TLS variable _Py_tss_tstate instead of pthread_getspecific.
 	var staticTLSOffset int64
+	var sharedTLS pythonSharedTLS
 	if version >= pythonVer(3, 13) {
 		var err error
 		staticTLSOffset, err = getTLSOffsetFromAssembly(ef)
 		if err != nil {
-			log.Warnf("Failed to extract TLS offset: %v", err)
+			if version >= pythonVer(3, 15) {
+				sharedTLS, err = getSharedTLSFromAssembly(ef)
+				if err != nil {
+					return nil, fmt.Errorf("unable to resolve thread state TLS: %w", err)
+				}
+			} else {
+				log.Warnf("Failed to extract TLS offset: %v", err)
+			}
 		}
 	}
 
@@ -883,6 +910,7 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 		version:         version,
 		autoTLSKey:      autoTLSKey,
 		staticTLSOffset: staticTLSOffset,
+		sharedTLS:       sharedTLS,
 	}
 	vms := &pd.vmStructs
 
@@ -953,7 +981,7 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 		// they removed one level of indirection.
 		vms.PyCFrame.CurrentFrame = 0
 		vms.PyASCIIObject.Data = 40
-	case pythonVer(3, 14):
+	case pythonVer(3, 14), pythonVer(3, 15):
 		// Python 3.14 underwent significant structural changes
 		// _PyInterpreterFrame structure:
 		//   - f_executable at offset 0 (instead of f_code)
@@ -965,7 +993,7 @@ func loader(ebpf interpreter.EbpfHandler, info *interpreter.LoaderInfo) (interpr
 		vms.PyFrameObject.LastI = 56       // instr_ptr (changed from prev_instr)
 		vms.PyFrameObject.Back = 8         // struct _PyInterpreterFrame *previous
 		vms.PyFrameObject.EntryMember = 74 // char owner
-		vms.PyFrameObject.EntryVal = 3     // enum _frameowner, FRAME_OWNED_BY_CSTACK
+		vms.PyFrameObject.EntryVal = 3     // enum _frameowner, FRAME_OWNED_BY_INTERPRETER
 		vms.PyThreadState.Frame = 72       // current_frame in _ts structure
 		// Current frame is not used anymore (removed in 3.13)
 		vms.PyCFrame.CurrentFrame = 0

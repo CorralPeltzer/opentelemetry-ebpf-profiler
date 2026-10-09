@@ -4,9 +4,12 @@
 package python // import "go.opentelemetry.io/ebpf-profiler/interpreter/python"
 
 import (
+	"fmt"
+
 	aa "golang.org/x/arch/arm64/arm64asm"
 
 	"go.opentelemetry.io/ebpf-profiler/asm/arm"
+	"go.opentelemetry.io/ebpf-profiler/asm/expression"
 	"go.opentelemetry.io/ebpf-profiler/libpf"
 )
 
@@ -100,4 +103,47 @@ func decodeStubArgumentARM64(code []byte,
 	}
 
 	return libpf.SymbolValueInvalid
+}
+
+// decodeTLSARM64 recognizes the TLSDESC sequence used by shared libpython builds.
+// The descriptor call returns a TP-relative offset; the getter loads TP[offset].
+func decodeTLSARM64(code []byte, codeAddress uint64) (uint64, error) {
+	it := arm.NewInterpreterWithCodeAt(code, expression.Imm(codeAddress))
+	var address uint64
+	called := false
+	for {
+		op, err := it.Step()
+		if err != nil {
+			return 0, err
+		}
+		switch op.Op {
+		case aa.MRS:
+			if op.Args[1].String() == "S3_3_C13_C0_2" {
+				reg, ok := op.Args[0].(aa.Reg)
+				if ok {
+					it.Regs.NameRegisterArm(reg, "tp")
+				}
+			}
+		case aa.BLR:
+			arg := it.Regs.Get(arm.X0)
+			var ok bool
+			address, ok = expression.AsConstant(arg)
+			reg, regOK := op.Args[0].(aa.Reg)
+			if called || !ok || address == 0 || address%8 != 0 || !regOK ||
+				!it.Regs.GetArm(reg).Match(expression.Mem8(arg)) {
+				return 0, fmt.Errorf("no TLS descriptor call")
+			}
+			called = true
+			it.Regs.NameRegisterArm(aa.X0, "tls_offset")
+		case aa.RET:
+			want := expression.Mem8(expression.Add(
+				expression.Named("tp"), expression.Named("tls_offset")))
+			if called && it.Regs.Get(arm.X0).Match(want) {
+				return address, nil
+			}
+			return 0, fmt.Errorf("no thread-state load from TLS descriptor result")
+		case aa.B, aa.BL, aa.BR:
+			return 0, fmt.Errorf("unexpected branch in TLS getter")
+		}
+	}
 }
