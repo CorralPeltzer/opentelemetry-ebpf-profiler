@@ -221,7 +221,10 @@ static EBPF_INLINE ErrorCode get_PyThreadState(
   return ERR_OK;
 }
 
-static EBPF_INLINE ErrorCode get_PyFrame(const PyProcInfo *pyinfo, void **frame)
+// Keep the thread state lookup in its own BPF function so that its branches do
+// not multiply the verifier states of the Python/native unwinding loop, which
+// the tail-call interpreter range lookup has made larger.
+static __attribute__((noinline)) ErrorCode get_PyFrame(const PyProcInfo *pyinfo, void **frame)
 {
   void *tsd_base;
   if (tsd_get_base(&tsd_base)) {

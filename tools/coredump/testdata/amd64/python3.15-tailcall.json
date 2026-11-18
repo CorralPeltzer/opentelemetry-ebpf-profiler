@@ -1,0 +1,92 @@
+{
+  "coredump-ref": "342b898818ea14c98719c034d538c11869b095573496b7692a54e94fbbac2384",
+  "threads": [
+    {
+      "lwp": 223816,
+      "frames": [
+        "python3.15+0x1a0203d",
+        "python315_leaf+3 in /home/miguel/profiling-exploration/python315/workload.py:8",
+        "python315_recursive+3 in /home/miguel/profiling-exploration/python315/workload.py:15",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_recursive+2 in /home/miguel/profiling-exploration/python315/workload.py:14",
+        "python315_outer+1 in /home/miguel/profiling-exploration/python315/workload.py:19",
+        "<module>+25 in /home/miguel/profiling-exploration/python315/workload.py:26",
+        "python3.15+0x6aaf62",
+        "python3.15+0x1a707c3",
+        "python3.15+0x1a704c1",
+        "python3.15+0x1ac8836",
+        "python3.15+0x1c4fea8",
+        "python3.15+0x1c4fca6",
+        "python3.15+0x1c4f805",
+        "python3.15+0x1c4f74d",
+        "python3.15+0x1c4f65c",
+        "python3.15+0x1b68b3a",
+        "python3.15+0x1b6871c",
+        "python3.15+0x1b6856b",
+        "libc.so.6+0x2a600",
+        "libc.so.6+0x2a717",
+        "python3.15+0x1bef868"
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "ref": "1327fc40710691dbd94e88b6cf4efce27fefe8fbb93f7d1164a75b4dccaea696",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libpthread.so.0"
+    },
+    {
+      "ref": "52c227df9d53248238602c1ddaccd2c8ddc4cc6a61aa45d7c425af590b8806a5",
+      "local-path": "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache"
+    },
+    {
+      "ref": "74336f094157053703fe153f9fe4efa9efd7589bfc4e9695ac8195cf8d5fa4c4",
+      "local-path": "/usr/lib/locale/locale-archive"
+    },
+    {
+      "ref": "40680545df4f92443c15e7c6f51a7fdc9154ebedd9eff1ed5c48437039add365",
+      "local-path": "/usr/lib/locale/C.utf8/LC_CTYPE"
+    },
+    {
+      "ref": "9d339ecb409578d6a5d587e6c537a8f9589b8a13fefba30d167433a4b5758bee",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1"
+    },
+    {
+      "ref": "1d5fdfec85a9c4ca1e7a8c3125aac07c92d551b902a02fdd6bbdf8c66c9e4c4a",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libutil.so.1"
+    },
+    {
+      "ref": "bda779ea9e9ad234f60315477d7cfd0bdde861cd8ddd9df8cdaf62f18c4cec14",
+      "local-path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    },
+    {
+      "ref": "aac3ade3f7d90fbf63e3ea0c46120a0cfbd159e1e503dde04721979507a1548b",
+      "local-path": "/home/miguel/.local/share/uv/python/cpython-3.15.0-linux-x86_64-gnu/bin/python3.15"
+    },
+    {
+      "ref": "85e64f97e348786a8fb4d9f3d52fec289e2fb86bba20f0731dfe61990525e0f7",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "ref": "9f3cc59207bcaaac74aaf7aca961f4816f0f4d945e4bd1c3cb98ec516becf161",
+      "local-path": "/usr/lib/x86_64-linux-gnu/librt.so.1"
+    },
+    {
+      "ref": "1c488db6f4fe8cecb72456bc018de000b7a9b539c2994864b0416b5e8371b3d8",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libm.so.6"
+    },
+    {
+      "ref": "59d725ca30596a9863f4fa2552a7125f834842abc86b40890231c129358965d2",
+      "local-path": "/usr/lib/x86_64-linux-gnu/libdl.so.2"
+    }
+  ]
+}

@@ -73,8 +73,10 @@ const (
 )
 
 const (
-	BitWidthPID  = C.BIT_WIDTH_PID
-	BitWidthPage = C.BIT_WIDTH_PAGE
+	BitWidthPID    = C.BIT_WIDTH_PID
+	BitWidthPage   = C.BIT_WIDTH_PAGE
+	BitWidthFileID = C.BIT_WIDTH_FILE_ID
+	BitWidthOffset = C.BIT_WIDTH_OFFSET
 )
 
 const (
@@ -133,6 +135,7 @@ type SpanID C.SpanID
 type TraceID C.TraceID
 type Event C.Event
 type GolangLabel C.GolangLabel
+type InterpreterRange C.InterpreterRange
 type OffsetRange C.OffsetRange
 type PIDPage C.PIDPage
 type PIDPageMappingInfo C.PIDPageMappingInfo

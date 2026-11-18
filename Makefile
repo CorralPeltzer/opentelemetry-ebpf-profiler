@@ -135,7 +135,7 @@ test: generate ebpf test-deps test-coredump
 	# Without CGO the symblib C-API bindings are skipped as having no Go files.
 	CGO_ENABLED=1 go test $(GO_FLAGS) -tags $(GO_TAGS) ./...
 
-test-coredump: generate ebpf
+test-coredump: generate ebpf fork-test-fixtures
 	# tools/coredump tests build ebpf C-code using CGO to test it against coredumps
 	CGO_ENABLED=1 go test -C tools/coredump $(GO_FLAGS) -tags $(GO_TAGS) ./...
 
@@ -144,7 +144,7 @@ test-coredump: generate ebpf
 test-luajit-offsets: generate
 	go test -C ./tools/luajitoffsets $(GO_FLAGS) -tags luajit_offsets_test ./...
 
-test-junit: generate ebpf test-deps
+test-junit: generate ebpf test-deps fork-test-fixtures
 	mkdir -p $(JUNIT_OUT_DIR)
 	CGO_ENABLED=1 go tool $(GO_TOOLS) gotestsum --junitfile $(JUNIT_OUT_DIR)/junit.xml -- $(GO_FLAGS) -tags $(GO_TAGS) ./...
 	CGO_ENABLED=1 go -C tools/coredump tool $(GO_TOOLS) gotestsum --junitfile $(abspath $(JUNIT_OUT_DIR))/junit-coredump.xml -- $(GO_FLAGS) -tags $(GO_TAGS) ./...
@@ -155,6 +155,10 @@ TESTDATA_DIRS:= \
 	reporter/testdata
 
 GOLABELS_TESTDATA_TARGETS := pprof_stable pprof_stable_buildinfo_cgo pprof_stable_cgo pprof_stable_cgo_pie
+
+.PHONY: fork-test-fixtures
+fork-test-fixtures:
+	tar -xf tools/coredump/testdata/fork-fixtures/python315-tailcall.tar -C tools/coredump
 
 test-deps: $(GOLABELS_TESTDATA_TARGETS)
 	$(foreach testdata_dir, $(TESTDATA_DIRS), \
