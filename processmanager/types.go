@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/ebpf-profiler/process/processcontext"
 	pmebpf "go.opentelemetry.io/ebpf-profiler/processmanager/ebpfapi"
 	eim "go.opentelemetry.io/ebpf-profiler/processmanager/execinfomanager"
+	"go.opentelemetry.io/ebpf-profiler/pyroscope/dynamicprofiling"
 	"go.opentelemetry.io/ebpf-profiler/reporter"
 	"go.opentelemetry.io/ebpf-profiler/times"
 	"go.opentelemetry.io/ebpf-profiler/util"
@@ -60,6 +61,7 @@ func kernelFrameCacheKey(address libpf.Address, generation kallsyms.Generation) 
 // ProcessManager is responsible for managing the events happening throughout the lifespan of a
 // process.
 type ProcessManager struct {
+	policy dynamicprofiling.Policy
 	// A mutex to synchronize access to internal data within this struct.
 	mu sync.RWMutex
 

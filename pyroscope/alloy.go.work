@@ -1,0 +1,12 @@
+go 1.27.3
+
+use (
+	.
+	./collector
+)
+
+replace go.opentelemetry.io/ebpf-profiler => ../opentelemetry-ebpf-profiler
+
+// Workspace mode otherwise selects containerd v1.7.18, whose api packages
+// clash with the separate containerd/api module.
+replace github.com/containerd/containerd => github.com/containerd/containerd v1.7.32

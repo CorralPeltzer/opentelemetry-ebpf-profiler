@@ -447,9 +447,10 @@ func (p *pythonInstance) updateProcInfo(ebpf interpreter.EbpfHandler, pid libpf.
 	vm := &d.vmStructs
 
 	cdata := support.PyProcInfo{
-		AutoTLSKeyAddr: uint64(d.autoTLSKey) + uint64(p.bias),
-		Tls_tstate:     tlsGilstate,
-		TsdInfo:        libcInfo.TSDInfo,
+		AutoTLSKeyAddr:              uint64(d.autoTLSKey) + uint64(p.bias),
+		Tls_tstate:                  tlsGilstate,
+		TsdInfo:                     libcInfo.TSDInfo,
+		Continue_with_next_unwinder: continueWithNextUnwinder(),
 
 		PyThreadState_frame:            uint8(vm.PyThreadState.Frame),
 		PyCFrame_current_frame:         uint8(vm.PyCFrame.CurrentFrame),

@@ -343,7 +343,8 @@ type PyProcInfo struct {
 	PyCodeObject_sizeof            uint8
 	Lasti_is_codeunit              uint8
 	Frame_is_cframe                uint8
-	Pad_cgo_0                      [6]byte
+	Continue_with_next_unwinder    uint8
+	Pad_cgo_0                      [5]byte
 }
 type RubyProcInfo struct {
 	Tls_ec                       TLSVarInfo

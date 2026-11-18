@@ -1,0 +1,174 @@
+diff --git a/internal/component/pyroscope/ebpf/reporter/builder.go b/internal/component/pyroscope/ebpf/reporter/builder.go
+index 230bc3b68..85d228464 100644
+--- a/internal/component/pyroscope/ebpf/reporter/builder.go
++++ b/internal/component/pyroscope/ebpf/reporter/builder.go
+@@ -72,7 +72,11 @@ func (b *ProfileBuilders) BuilderForSample(
+ 	var sampleType []*profile.ValueType
+ 	var periodType *profile.ValueType
+ 	var period int64
+-	switch b.opt.ProfileType.SampleType {
++	if len(b.opt.ProfileType.SampleTypes) != 1 {
++		return nil, fmt.Errorf("unsupported profile with %d sample types", len(b.opt.ProfileType.SampleTypes))
++	}
++	sampleTypeName := b.opt.ProfileType.SampleTypes[0].Type
++	switch sampleTypeName {
+ 	case "off_cpu":
+ 		sampleType = []*profile.ValueType{{Type: "offcpu", Unit: "nanoseconds"}}
+ 		period = 1
+@@ -85,7 +89,7 @@ func (b *ProfileBuilders) BuilderForSample(
+ 		periodType = &profile.ValueType{Type: cpuProfileType, Unit: "nanoseconds"}
+ 		period = time.Second.Nanoseconds() / b.opt.SampleRate
+ 	default:
+-		return nil, fmt.Errorf("unsupported profile sample type %q", b.opt.ProfileType.SampleType)
++		return nil, fmt.Errorf("unsupported profile sample type %q", sampleTypeName)
+ 	}
+ 	builder := &ProfileBuilder{
+ 		p:            b,
+diff --git a/internal/component/pyroscope/ebpf/reporter/pprof.go b/internal/component/pyroscope/ebpf/reporter/pprof.go
+index b3fd5f20b..bf794425c 100644
+--- a/internal/component/pyroscope/ebpf/reporter/pprof.go
++++ b/internal/component/pyroscope/ebpf/reporter/pprof.go
+@@ -83,7 +83,6 @@ func (p *PPROFReporter) ReportTraceEvent(trace *libpf.Trace, meta *samples.Trace
+ 	}
+ 
+ 	key := samples.ResourceKey{
+-		APMServiceName: meta.APMServiceName,
+ 		ContainerID:    meta.ContainerID,
+ 		PID:            int64(meta.PID),
+ 		ExecutablePath: meta.ExecutablePath,
+@@ -114,19 +113,23 @@ func (p *PPROFReporter) ReportTraceEvent(trace *libpf.Trace, meta *samples.Trace
+ 	}
+ 	if events, exists := rtp.Events[meta.ProfileType][sampleKey]; exists {
+ 		events.Timestamps = append(events.Timestamps, uint64(meta.Timestamp))
+-		events.Values = append(events.Values, meta.Value)
++		events.Values = meta.ProfileType.AppendValues(events.Values, meta)
+ 		return nil
+ 	}
+ 
+ 	rtp.Events[meta.ProfileType][sampleKey] = &samples.TraceEvents{
+ 		Frames:     trace.Frames,
+ 		Timestamps: []uint64{uint64(meta.Timestamp)},
+-		Values:     []int64{meta.Value},
++		Values:     meta.ProfileType.AppendValues(nil, meta),
+ 		Labels:     trace.CustomLabels,
+ 	}
+ 	return nil
+ }
+ 
++// SetSnapshotSource ignores probe snapshots: Alloy enables no probe that
++// produces them.
++func (p *PPROFReporter) SetSnapshotSource(samples.SnapshotSource) {}
++
+ func (p *PPROFReporter) Start(ctx context.Context) error {
+ 	ctx, cancelReporting := context.WithCancel(ctx)
+ 	p.cancelReporting = cancelReporting
+@@ -211,10 +214,10 @@ func (p *PPROFReporter) createProfile(resourceKey samples.ResourceKey, profileTy
+ 		if p.cfg.PIDLabel {
+ 			sampleLabels["pid"] = []string{strconv.FormatInt(resourceKey.PID, 10)}
+ 		}
+-		if sampleKey.SpanID != libpf.InvalidAPMSpanID {
++		if sampleKey.SpanID != libpf.InvalidSpanID {
+ 			sampleLabels["span_id"] = []string{hex.EncodeToString(sampleKey.SpanID[:])}
+ 		}
+-		if sampleKey.TraceID != libpf.InvalidAPMTraceID {
++		if sampleKey.TraceID != libpf.InvalidTraceID {
+ 			sampleLabels["trace_id"] = []string{hex.EncodeToString(sampleKey.TraceID[:])}
+ 		}
+ 		if len(sampleLabels) > 0 {
+diff --git a/internal/component/pyroscope/ebpf/reporter/pprof_test.go b/internal/component/pyroscope/ebpf/reporter/pprof_test.go
+index a8b5688cc..a9c11379d 100644
+--- a/internal/component/pyroscope/ebpf/reporter/pprof_test.go
++++ b/internal/component/pyroscope/ebpf/reporter/pprof_test.go
+@@ -24,21 +24,23 @@ import (
+ )
+ 
+ var profileTypeSampling = &samples.TypeMetadata{
+-	PeriodType: "cpu",
+-	PeriodUnit: "nanoseconds",
+-	SampleType: "samples",
+-	SampleUnit: "count",
++	SampleTypes: []samples.SampleType{{
++		Type:   "samples",
++		Unit:   "count",
++		Period: &samples.Period{Type: "cpu", Unit: "nanoseconds"},
++	}},
++	AppendValues: samples.AppendFirstContextValue,
+ }
+ 
+ var profileTypeOffCPU = &samples.TypeMetadata{
+-	SampleType:   "off_cpu",
+-	SampleUnit:   "nanoseconds",
++	SampleTypes:  []samples.SampleType{{Type: "off_cpu", Unit: "nanoseconds"}},
+ 	ReportValues: true,
++	AppendValues: samples.AppendFirstContextValue,
+ }
+ 
+ var profileTypeProbe = &samples.TypeMetadata{
+-	SampleType: "events",
+-	SampleUnit: "count",
++	SampleTypes:  []samples.SampleType{{Type: "events", Unit: "count"}},
++	AppendValues: samples.AppendFirstContextValue,
+ }
+ 
+ func singleFrameTrace(ty libpf.FrameType, mappingFile libpf.FrameMappingFile, lineno libpf.AddressOrLineno, funcName, sourceFile string, sourceLine libpf.SourceLineno) libpf.Frames {
+@@ -262,10 +264,10 @@ func TestPPROFReporter_SpanAndTraceIDsBecomeSampleLabels(t *testing.T) {
+ 		AddressOrLineno: 0x2000,
+ 	})
+ 
+-	spanIDOne := libpf.APMSpanID{1, 2, 3, 4, 5, 6, 7, 8}
+-	traceIDOne := libpf.APMTraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+-	spanIDTwo := libpf.APMSpanID{8, 7, 6, 5, 4, 3, 2, 1}
+-	traceIDTwo := libpf.APMTraceID{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
++	spanIDOne := libpf.SpanID{1, 2, 3, 4, 5, 6, 7, 8}
++	traceIDOne := libpf.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
++	spanIDTwo := libpf.SpanID{8, 7, 6, 5, 4, 3, 2, 1}
++	traceIDTwo := libpf.TraceID{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
+ 
+ 	events := samples.SampleToEvents{
+ 		{Hash: libpf.NewTraceHash(0, 1), SpanID: spanIDOne, TraceID: traceIDOne}: {
+@@ -339,7 +341,7 @@ func TestPPROFReporter_UsesProfileType(t *testing.T) {
+ 		{
+ 			name: "unknown",
+ 			profileType: &samples.TypeMetadata{
+-				SampleType: "unknown",
++				SampleTypes: []samples.SampleType{{Type: "unknown"}},
+ 			},
+ 		},
+ 	} {
+@@ -353,7 +355,7 @@ func TestPPROFReporter_UsesProfileType(t *testing.T) {
+ 				},
+ 			})
+ 
+-			if tc.profileType.SampleType == "unknown" {
++			if tc.profileType.SampleTypes[0].Type == "unknown" {
+ 				assert.Empty(t, profiles)
+ 				return
+ 			}
+diff --git a/internal/component/pyroscope/ebpf/symb/irsymcache/dummy_process_test.go b/internal/component/pyroscope/ebpf/symb/irsymcache/dummy_process_test.go
+index 33f1d2585..a3ac74f5a 100644
+--- a/internal/component/pyroscope/ebpf/symb/irsymcache/dummy_process_test.go
++++ b/internal/component/pyroscope/ebpf/symb/irsymcache/dummy_process_test.go
+@@ -4,6 +4,7 @@ package irsymcache
+ 
+ import (
+ 	"errors"
++	"io/fs"
+ 	"os"
+ 
+ 	"go.opentelemetry.io/ebpf-profiler/libpf"
+@@ -61,10 +62,14 @@ func (d *dummyProcess) CalculateMappingFileID(m *process.RawMapping) (libpf.File
+ 	return libpf.FileIDFromExecutableFile(m.Path)
+ }
+ 
+-func (d *dummyProcess) OpenMappingFile(m *process.RawMapping) (process.ReadAtCloser, error) {
++func (d *dummyProcess) OpenMappingFile(m *process.RawMapping) (fs.File, error) {
+ 	return os.Open(m.Path)
+ }
+ 
++func (d *dummyProcess) Open(name string) (fs.File, error) {
++	return os.Open("/" + name)
++}
++
+ func (d *dummyProcess) OpenELF(name string) (*pfelf.File, error) {
+ 	return pfelf.Open(name)
+ }

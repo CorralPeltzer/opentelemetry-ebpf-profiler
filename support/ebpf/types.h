@@ -471,6 +471,7 @@ typedef struct PyProcInfo {
   u8 PyCodeObject_co_flags, PyCodeObject_co_firstlineno;
   u8 PyCodeObject_sizeof;
   u8 lasti_is_codeunit, frame_is_cframe;
+  u8 continue_with_next_unwinder;
 } PyProcInfo;
 
 // PHPProcInfo is a container for the data needed to build a stack trace for a PHP process.

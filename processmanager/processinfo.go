@@ -36,6 +36,7 @@ import (
 	"go.opentelemetry.io/ebpf-profiler/process"
 	"go.opentelemetry.io/ebpf-profiler/process/processcontext"
 	"go.opentelemetry.io/ebpf-profiler/processmanager/execinfomanager"
+	"go.opentelemetry.io/ebpf-profiler/pyroscope/dynamicprofiling"
 	"go.opentelemetry.io/ebpf-profiler/reporter"
 	"go.opentelemetry.io/ebpf-profiler/support"
 	"go.opentelemetry.io/ebpf-profiler/times"
@@ -595,6 +596,9 @@ func (c *interpreterMappingCollector) mappings() []process.RawMapping {
 //
 // TODO: Periodic synchronization of mappings for every tracked PID.
 func (pm *ProcessManager) SynchronizeProcess(pr process.Process) {
+	if !pm.profilingEnabled(pr) {
+		return
+	}
 	pid := pr.PID()
 	log.Debugf("= PID: %v", pid)
 
@@ -870,6 +874,22 @@ func (pm *ProcessManager) SynchronizeProcess(pr process.Process) {
 		// Also see: Unified PID Events design doc
 		pm.ebpf.RemoveReportedPID(pid)
 	}
+}
+
+// profilingEnabled asks the profiling policy whether to track the process.
+// Processes that are already tracked stay tracked until their exit is processed.
+func (pm *ProcessManager) profilingEnabled(pr process.Process) bool {
+	if _, alwaysOn := pm.policy.(dynamicprofiling.AlwaysOnPolicy); alwaysOn || pm.policy == nil {
+		return true
+	}
+	containerID := pr.GetProcessMeta(nil).ContainerID.String()
+	if pm.policy.ProfilingEnabled(pr, containerID) {
+		return true
+	}
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	_, tracked := pm.pidToProcessInfo[pr.PID()]
+	return tracked
 }
 
 // CleanupPIDs executes a periodic synchronization of pidToProcessInfo table with system processes.
